@@ -19,7 +19,7 @@ from caelestia.utils.paths import (
 def gen_conf(colours: dict[str, str]) -> str:
     conf = ""
     for name, colour in colours.items():
-        conf += f"${name} = {colour}\n"
+        conf += f"${name} = rgb({colour})\n"
     return conf
 
 
@@ -175,9 +175,10 @@ def apply_gtk(colours: dict[str, str], mode: str) -> None:
     write_file(config_dir / "gtk-3.0/gtk.css", template)
     write_file(config_dir / "gtk-4.0/gtk.css", template)
 
-    subprocess.run(["dconf", "write", "/org/gnome/desktop/interface/gtk-theme", "'adw-gtk3-dark'"])
-    subprocess.run(["dconf", "write", "/org/gnome/desktop/interface/color-scheme", f"'prefer-{mode}'"])
-    subprocess.run(["dconf", "write", "/org/gnome/desktop/interface/icon-theme", f"'Papirus-{mode.capitalize()}'"])
+    gtk_theme = "adw-gtk3-dark" if mode == "dark" else "adw-gtk3"
+    subprocess.run(["dconf", "write", "/org/gnome/desktop/interface/gtk-theme", f"'{gtk_theme}'"], stderr=subprocess.DEVNULL)
+    subprocess.run(["dconf", "write", "/org/gnome/desktop/interface/color-scheme", f"'prefer-{mode}'"], stderr=subprocess.DEVNULL)
+    subprocess.run(["dconf", "write", "/org/gnome/desktop/interface/icon-theme", f"'Papirus-{mode.capitalize()}'"], stderr=subprocess.DEVNULL)
 
 
 @log_exception
@@ -224,6 +225,60 @@ def apply_cava(colours: dict[str, str]) -> None:
 
 
 @log_exception
+def apply_ghostty(colours: dict[str, str]) -> None:
+    config = f"""background = #{colours["surface"]}
+foreground = #{colours["onSurface"]}
+cursor-color = #{colours["secondary"]}
+selection-background = #{colours["surfaceContainer"]}
+selection-foreground = #{colours["onSurface"]}
+palette = 0=#{colours["term0"]}
+palette = 1=#{colours["term1"]}
+palette = 2=#{colours["term2"]}
+palette = 3=#{colours["term3"]}
+palette = 4=#{colours["term4"]}
+palette = 5=#{colours["term5"]}
+palette = 6=#{colours["term6"]}
+palette = 7=#{colours["term7"]}
+palette = 8=#{colours["term8"]}
+palette = 9=#{colours["term9"]}
+palette = 10=#{colours["term10"]}
+palette = 11=#{colours["term11"]}
+palette = 12=#{colours["term12"]}
+palette = 13=#{colours["term13"]}
+palette = 14=#{colours["term14"]}
+palette = 15=#{colours["term15"]}
+"""
+    write_file(config_dir / "ghostty/caelestia", config)
+
+
+@log_exception
+def apply_browser(mode: str) -> None:
+    subprocess.run(
+        ["dconf", "write", "/org/gnome/desktop/interface/color-scheme", f"'prefer-{mode}'"],
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["dconf", "write", "/org/gnome/desktop/interface/gtk-theme", f"'Adwaita{'-dark' if mode == 'dark' else ''}'"],
+        stderr=subprocess.DEVNULL,
+    )
+    color_scheme = 1 if mode == "dark" else 2
+    subprocess.run(
+        [
+            "dbus-send",
+            "--session",
+            "--dest=org.freedesktop.portal.Desktop",
+            "--type=signal",
+            "/org/freedesktop/portal/desktop",
+            "org.freedesktop.portal.Settings.SettingChanged",
+            "string:org.freedesktop.appearance",
+            "string:color-scheme",
+            f"variant:uint32:{color_scheme}",
+        ],
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@log_exception
 def apply_user_templates(colours: dict[str, str]) -> None:
     if not user_templates_dir.is_dir():
         return
@@ -267,4 +322,8 @@ def apply_colours(colours: dict[str, str], mode: str) -> None:
         apply_warp(colours, mode)
     if check("enableCava"):
         apply_cava(colours)
+    if check("enableGhostty"):
+        apply_ghostty(colours)
+    if check("enableBrowser"):
+        apply_browser(mode)
     apply_user_templates(colours)

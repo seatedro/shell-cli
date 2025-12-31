@@ -3,6 +3,7 @@
   lib,
   python3,
   installShellFiles,
+  makeWrapper,
   swappy,
   libnotify,
   slurp,
@@ -14,6 +15,9 @@
   fuzzel,
   gpu-screen-recorder,
   dconf,
+  glib,
+  gsettings-desktop-schemas,
+
   killall,
   caelestia-shell,
   withShell ? false,
@@ -36,25 +40,29 @@ python3.pkgs.buildPythonApplication {
     pillow
   ];
 
-  pythonImportsCheck = ["caelestia"];
+  pythonImportsCheck = [ "caelestia" ];
 
-  nativeBuildInputs = [installShellFiles];
-  propagatedBuildInputs =
-    [
-      swappy
-      libnotify
-      slurp
-      wl-clipboard
-      cliphist
-      app2unit
-      dart-sass
-      grim
-      fuzzel
-      gpu-screen-recorder
-      dconf
-      killall
-    ]
-    ++ lib.optional withShell caelestia-shell;
+  nativeBuildInputs = [
+    installShellFiles
+    makeWrapper
+  ];
+  propagatedBuildInputs = [
+    swappy
+    libnotify
+    slurp
+    wl-clipboard
+    cliphist
+    app2unit
+    dart-sass
+    grim
+    fuzzel
+    gpu-screen-recorder
+    dconf
+    glib
+    gsettings-desktop-schemas
+    killall
+  ]
+  ++ lib.optional withShell caelestia-shell;
 
   SETUPTOOLS_SCM_PRETEND_VERSION = 1;
 
@@ -77,6 +85,13 @@ python3.pkgs.buildPythonApplication {
   '';
 
   postInstall = "installShellCompletion completions/caelestia.fish";
+
+  postFixup = ''
+    wrapProgram $out/bin/caelestia \
+      --prefix XDG_DATA_DIRS : "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}" \
+      --prefix GIO_EXTRA_MODULES : "${glib.out}/lib/gio/modules" \
+      --set GSETTINGS_BACKEND dconf
+  '';
 
   meta = {
     description = "The main control script for the Caelestia dotfiles";
